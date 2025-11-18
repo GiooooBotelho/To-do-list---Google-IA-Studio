@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, FormEvent } from 'react';
-import { Task, Priority, Category } from '../types';
+import { Task, PriorityLevel, PrimaryCategory, SecondaryCategory, TaskStatus } from '../types';
 
 interface TaskFormModalProps {
   isOpen: boolean;
@@ -8,12 +9,47 @@ interface TaskFormModalProps {
   taskToEdit?: Task | null;
 }
 
+const priorityOptions: { value: PriorityLevel; label: string }[] = [
+  { value: 0, label: '0 - Imediato (Crítico)' },
+  { value: 1, label: '1 - Urgente' },
+  { value: 10, label: '10 - Alta' },
+  { value: 100, label: '100 - Normal' },
+  { value: 1000, label: '1000 - Baixa/Backlog' },
+];
+
+const secondaryOptions: SecondaryCategory[] = [
+  'Geral',
+  'Água',
+  'Anvisa',
+  'Calibração',
+  'Corte a Laser',
+  'Embalagem',
+  'ESD',
+  'ETO',
+  'Gravação a Laser',
+  'Inventário',
+  'Mestrado',
+  'Partículas',
+  'Solda a Laser',
+  'Visita'
+];
+
 const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, taskToEdit }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
-  const [priority, setPriority] = useState<Priority>(Priority.Medium);
-  const [category, setCategory] = useState<Category>(Category.SAE);
+  
+  // Workflow State
+  const [priority, setPriority] = useState<PriorityLevel>(100);
+  const [status, setStatus] = useState<TaskStatus>(TaskStatus.Pending);
+  const [lastAction, setLastAction] = useState('');
+  const [nextAction, setNextAction] = useState('');
+  const [parallelAction, setParallelAction] = useState('');
+
+  // Categorization State
+  const [primaryCategory, setPrimaryCategory] = useState<PrimaryCategory>(PrimaryCategory.SAE);
+  const [secondaryCategory, setSecondaryCategory] = useState<SecondaryCategory>('Geral');
+
   const [taskDate, setTaskDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
   
@@ -24,7 +60,18 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             setDescription(taskToEdit.description);
             setNotes(taskToEdit.notes);
             setPriority(taskToEdit.priority);
-            setCategory(taskToEdit.category);
+            
+            // Handle Legacy Data mapping for Category -> PrimaryCategory
+            // @ts-ignore - ignoring strict check for legacy 'category' field existence
+            const legacyCategory = taskToEdit.category; 
+            setPrimaryCategory(taskToEdit.primaryCategory || legacyCategory || PrimaryCategory.SAE);
+            setSecondaryCategory(taskToEdit.secondaryCategory || 'Geral');
+            
+            setStatus(taskToEdit.status || TaskStatus.Pending);
+            setLastAction(taskToEdit.lastAction || '');
+            setNextAction(taskToEdit.nextAction || '');
+            setParallelAction(taskToEdit.parallelAction || '');
+
             setTaskDate(new Date(taskToEdit.taskDate).toISOString().split('T')[0]);
             setDueDate(taskToEdit.dueDate ? new Date(taskToEdit.dueDate).toISOString().split('T')[0] : '');
         } else {
@@ -32,8 +79,13 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             setName('');
             setDescription('');
             setNotes('');
-            setPriority(Priority.Medium);
-            setCategory(Category.SAE);
+            setPriority(100);
+            setStatus(TaskStatus.Pending);
+            setLastAction('');
+            setNextAction('');
+            setParallelAction('');
+            setPrimaryCategory(PrimaryCategory.SAE);
+            setSecondaryCategory('Geral');
             setTaskDate(new Date().toISOString().split('T')[0]);
             setDueDate('');
         }
@@ -49,11 +101,15 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
       description,
       notes,
       priority,
-      category,
+      primaryCategory,
+      secondaryCategory,
+      status,
+      lastAction,
+      nextAction,
+      parallelAction: status === TaskStatus.Waiting ? parallelAction : '',
       taskDate: new Date(taskDate).toISOString(),
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
     });
-    // The parent component now handles closing the modal.
   };
   
   if (!isOpen) return null;
@@ -63,40 +119,77 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" onClick={onClose}>
       <div 
-        className="bg-white rounded-xl shadow-2xl w-full max-w-lg m-4" 
+        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl m-4 max-h-[90vh] overflow-y-auto" 
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-bold">{isEditing ? 'Editar Tarefa' : 'Nova Tarefa'}</h2>
+        <div className="p-6 border-b bg-slate-50 rounded-t-xl sticky top-0 z-10">
+          <h2 className="text-xl font-bold text-slate-800">{isEditing ? 'Editar Tarefa' : 'Nova Tarefa'}</h2>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">Nome da Tarefa</label>
-            <input type="text" id="name" value={name} onChange={e => setName(e.target.value)} required className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div className="md:col-span-2">
+                <label htmlFor="name" className="block text-sm font-bold text-slate-700 mb-1">Nome da Tarefa</label>
+                <input type="text" id="name" value={name} onChange={e => setName(e.target.value)} required className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+             </div>
+             <div>
+                <label htmlFor="priority" className="block text-sm font-bold text-slate-700 mb-1">Prioridade</label>
+                <select id="priority" value={priority} onChange={e => setPriority(Number(e.target.value) as PriorityLevel)} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    {priorityOptions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </select>
+            </div>
           </div>
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
-            <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={2} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
-          </div>
-          <div>
-            <label htmlFor="notes" className="block text-sm font-medium text-slate-700 mb-1">Observações</label>
-            <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
             <div>
-                <label htmlFor="priority" className="block text-sm font-medium text-slate-700 mb-1">Prioridade</label>
-                <select id="priority" value={priority} onChange={e => setPriority(e.target.value as Priority)} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+               <label htmlFor="status" className="block text-sm font-bold text-slate-700 mb-1">Status</label>
+                <select id="status" value={status} onChange={e => setStatus(e.target.value as TaskStatus)} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    {Object.values(TaskStatus).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
             </div>
              <div>
-                <label htmlFor="category" className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-                <select id="category" value={category} onChange={e => setCategory(e.target.value as Category)} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
+                <label htmlFor="primaryCategory" className="block text-sm font-bold text-slate-700 mb-1">Cat. Primária</label>
+                <select id="primaryCategory" value={primaryCategory} onChange={e => setPrimaryCategory(e.target.value as PrimaryCategory)} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    {Object.values(PrimaryCategory).map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
             </div>
             <div>
-                <label htmlFor="taskDate" className="block text-sm font-medium text-slate-700 mb-1">Data da Tarefa</label>
+                <label htmlFor="secondaryCategory" className="block text-sm font-bold text-slate-700 mb-1">Cat. Secundária</label>
+                <select id="secondaryCategory" value={secondaryCategory} onChange={e => setSecondaryCategory(e.target.value as SecondaryCategory)} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    {secondaryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+            </div>
+          </div>
+
+          {/* Workflow Fields */}
+          <div className="space-y-3">
+            <div>
+                <label htmlFor="lastAction" className="block text-sm font-medium text-slate-600 mb-1">Última coisa feita</label>
+                <input type="text" id="lastAction" value={lastAction} onChange={e => setLastAction(e.target.value)} placeholder="O que foi concluído recentemente..." className="w-full px-3 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-md focus:bg-white focus:border-blue-500 focus:outline-none transition-colors"/>
+            </div>
+            
+            <div>
+                <label htmlFor="nextAction" className="block text-sm font-bold text-blue-700 mb-1">Próxima coisa a fazer</label>
+                <input type="text" id="nextAction" value={nextAction} onChange={e => setNextAction(e.target.value)} placeholder="Qual o próximo passo imediato?" className="w-full px-3 py-2 bg-blue-50 text-slate-900 border border-blue-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"/>
+            </div>
+
+            {/* Conditional Parallel Action */}
+            {status === TaskStatus.Waiting && (
+                <div className="animate-fadeIn">
+                     <label htmlFor="parallelAction" className="block text-sm font-bold text-purple-700 mb-1">Se aguardando, pode fazer algo em paralelo?</label>
+                     <input type="text" id="parallelAction" value={parallelAction} onChange={e => setParallelAction(e.target.value)} placeholder="Ação alternativa enquanto aguarda..." className="w-full px-3 py-2 bg-purple-50 text-slate-900 border border-purple-200 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"/>
+                </div>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">Descrição Completa</label>
+            <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={2} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label htmlFor="taskDate" className="block text-sm font-medium text-slate-700 mb-1">Data de Criação</label>
                 <input type="date" id="taskDate" value={taskDate} onChange={e => setTaskDate(e.target.value)} required className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
             </div>
              <div>
@@ -104,7 +197,13 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                 <input type="date" id="dueDate" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
             </div>
           </div>
-          <div className="pt-4 flex justify-end gap-3">
+
+           <div>
+            <label htmlFor="notes" className="block text-sm font-medium text-slate-700 mb-1">Observações Extras</label>
+            <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3 border-t mt-4">
             <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-md font-semibold hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2">Cancelar</button>
             <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">{isEditing ? 'Salvar Alterações' : 'Salvar Tarefa'}</button>
           </div>

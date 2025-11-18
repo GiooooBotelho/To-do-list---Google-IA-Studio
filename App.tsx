@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { Task, Subtask } from './types';
+import { Task, Subtask, TaskStatus } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import Header from './components/Header';
 import TaskList from './components/TaskList';
@@ -8,7 +9,7 @@ import { PlusIcon } from './components/Icons';
 import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 
 const App: React.FC = () => {
-  const [tasks, setTasks] = useLocalStorage<Task[]>('tasks', []);
+  const [tasks, setTasks] = useLocalStorage<Task[]>('tasks_v2', []); // Changed key to reset state for new types
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
@@ -29,17 +30,25 @@ const App: React.FC = () => {
   };
 
   const handleSaveTask = (taskData: Omit<Task, 'id' | 'completed' | 'completionDate'>) => {
+    // Determine if completed based on status
+    const isCompleted = taskData.status === TaskStatus.Completed;
+
     if (editingTask) {
       // Update existing task
-      const updatedTask: Task = { ...editingTask, ...taskData };
+      const updatedTask: Task = { 
+          ...editingTask, 
+          ...taskData,
+          completed: isCompleted,
+          completionDate: isCompleted ? (editingTask.completionDate || new Date().toISOString()) : null
+      };
       setTasks(tasks.map(t => (t.id === editingTask.id ? updatedTask : t)));
     } else {
       // Add new task
       const newTask: Task = {
         id: crypto.randomUUID(),
         ...taskData,
-        completed: false,
-        completionDate: null,
+        completed: isCompleted,
+        completionDate: isCompleted ? new Date().toISOString() : null,
       };
       setTasks([...tasks, newTask]);
     }
@@ -49,15 +58,18 @@ const App: React.FC = () => {
 
   const toggleTaskCompletion = (id: string) => {
     setTasks(
-      tasks.map(task =>
-        task.id === id
-          ? {
-              ...task,
-              completed: !task.completed,
-              completionDate: !task.completed ? new Date().toISOString() : null,
+      tasks.map(task => {
+        if (task.id === id) {
+            const newCompletedState = !task.completed;
+            return {
+                ...task,
+                completed: newCompletedState,
+                status: newCompletedState ? TaskStatus.Completed : TaskStatus.Pending, // Auto-switch status
+                completionDate: newCompletedState ? new Date().toISOString() : null,
             }
-          : task
-      )
+        }
+        return task;
+      })
     );
   };
   
@@ -110,11 +122,16 @@ const App: React.FC = () => {
 
   const { pendingTasks, completedTasks } = useMemo(() => {
     const pending = tasks
-      .filter(task => !task.completed)
-      .sort((a, b) => new Date(a.taskDate).getTime() - new Date(b.taskDate).getTime());
+      .filter(task => !task.completed && task.status !== TaskStatus.Completed)
+      // Sort by Priority (asc) then Date
+      .sort((a, b) => {
+         const prioDiff = (a.priority || 100) - (b.priority || 100);
+         if (prioDiff !== 0) return prioDiff;
+         return new Date(a.taskDate).getTime() - new Date(b.taskDate).getTime();
+      });
 
     const completed = tasks
-      .filter(task => task.completed)
+      .filter(task => task.completed || task.status === TaskStatus.Completed)
       .sort((a, b) => new Date(b.completionDate!).getTime() - new Date(a.completionDate!).getTime());
       
     return { pendingTasks: pending, completedTasks: completed };
@@ -125,24 +142,26 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-800">
       <Header onAddTask={openModalForNew} />
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <TaskList
-            title="Tarefas Pendentes"
+            title="A Fazer / Executando"
             tasks={pendingTasks}
             onToggle={toggleTaskCompletion}
             onDelete={requestDelete}
             onEdit={openModalForEdit}
             onAddSubtask={addSubtask}
             onToggleSubtask={toggleSubtaskCompletion}
+            dateFilterType="creation"
           />
           <TaskList
-            title="Tarefas Concluídas"
+            title="Concluídas"
             tasks={completedTasks}
             onToggle={toggleTaskCompletion}
             onDelete={requestDelete}
             onEdit={openModalForEdit}
             onAddSubtask={addSubtask}
             onToggleSubtask={toggleSubtaskCompletion}
+            dateFilterType="completion"
           />
         </div>
       </main>
