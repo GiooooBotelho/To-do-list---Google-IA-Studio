@@ -1,0 +1,5 @@
+{
+  "name": "To-Do List App",
+  "description": "A simple and elegant to-do list application to manage your daily work tasks. It features pending and completed task lists, priority settings, and a clean, modern interface inspired by popular productivity apps.",
+  "requestFramePermissions": []
+}
