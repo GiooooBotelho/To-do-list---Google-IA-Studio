@@ -86,15 +86,15 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onToggleToday, onDe
         {/* Main Compact Content Grid */}
         <div className="flex-1 py-2 px-3 grid grid-cols-1 lg:grid-cols-12 gap-2 items-center min-h-[50px]">
             
-            {/* Col 1: Checkbox & Name (Span 4) */}
-            <div className="lg:col-span-4 flex items-center gap-2 overflow-hidden">
+            {/* Col 1: Checkbox & Name (Expanded to span 9) */}
+            <div className="lg:col-span-9 flex items-center gap-2 overflow-hidden">
                 <input
                     type="checkbox"
                     checked={task.completed || task.status === TaskStatus.Completed}
                     onChange={() => onToggle(task.id)}
                     className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0"
                 />
-                <div className="flex flex-col truncate">
+                <div className="flex flex-col truncate flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <span className={`font-bold text-sm truncate ${task.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                             {task.name}
@@ -103,59 +103,34 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onToggleToday, onDe
                              <StarIcon className="w-3 h-3 text-amber-500 fill-current flex-shrink-0" />
                         )}
                     </div>
-                    {/* Mobile-only subtitle info */}
-                    <div className="flex lg:hidden items-center gap-1 text-[10px] opacity-70">
-                         <span>{currentStatus.text.replace('text-','').replace('-700','')}</span>
+                    {/* Mobile-only info (kept for mobile context) */}
+                    <div className="flex lg:hidden items-center gap-1 text-[10px] opacity-70 truncate">
+                         <span className="uppercase font-bold text-[9px]">{task.status}</span>
                          <span>•</span>
                          <span>{displayPrimary}</span>
+                         {task.nextAction && (
+                             <>
+                                <span>•</span>
+                                <span className="text-blue-600 font-medium truncate">Próx: {task.nextAction}</span>
+                             </>
+                         )}
                     </div>
                 </div>
             </div>
 
-            {/* Col 2: Action Context (Span 5) - The "Middle" Section */}
-            <div className="lg:col-span-5 flex flex-col justify-center h-full text-xs gap-0.5 overflow-hidden">
-                {!task.completed && (
-                    <>
-                        {task.nextAction ? (
-                            <div className="flex items-center gap-1 text-blue-700 truncate">
-                                <span className="font-bold text-[10px] uppercase text-blue-400 flex-shrink-0">Próx:</span>
-                                <span className="font-medium truncate" title={task.nextAction}>{task.nextAction}</span>
-                            </div>
-                        ) : (
-                           <span className="text-slate-300 text-[10px] italic lg:block hidden">- Sem próxima ação -</span> 
-                        )}
-                        
-                        {task.lastAction && (
-                            <div className="flex items-center gap-1 text-slate-500 truncate">
-                                <span className="font-bold text-[10px] uppercase text-slate-300 flex-shrink-0">Últ:</span>
-                                <span className="truncate italic" title={task.lastAction}>{task.lastAction}</span>
-                            </div>
-                        )}
-
-                        {/* Parallel Action Warning - Compact Inline */}
-                        {task.status === TaskStatus.Waiting && task.parallelAction && (
-                            <div className="flex items-center gap-1 text-purple-600 truncate animate-pulse-slow">
-                                <span className="font-bold text-[10px] uppercase flex-shrink-0">Paralelo:</span>
-                                <span className="truncate font-medium">{task.parallelAction}</span>
-                            </div>
-                        )}
-                    </>
-                )}
-            </div>
-
-            {/* Col 3: Meta & Controls (Span 3) - Right Aligned */}
+            {/* Col 2: Meta & Controls (Span 3) - Right Aligned */}
             <div className="lg:col-span-3 flex items-center justify-end gap-2 pl-2 lg:border-l border-slate-200/50">
                  {/* Desktop Categories/Status */}
-                 <div className="hidden lg:flex flex-col items-end gap-0.5 mr-1">
+                 <div className="hidden lg:flex flex-col items-end gap-0.5 mr-1 min-w-0">
                     <div className="flex gap-1">
                         <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider border ${currentStatus.border} ${currentStatus.bg} ${currentStatus.text}`}>
                             {task.status}
                         </span>
                     </div>
-                    <div className="flex gap-1 text-[9px]">
-                        <span className="font-medium text-slate-500 bg-white/50 px-1 rounded border border-slate-100">{displayPrimary}</span>
+                    <div className="flex gap-1 text-[9px] justify-end w-full">
+                        <span className="font-medium text-slate-500 bg-white/50 px-1 rounded border border-slate-100 whitespace-nowrap">{displayPrimary}</span>
                         {displaySecondary && displaySecondary !== 'Geral' && (
-                             <span className="text-slate-400 italic max-w-[60px] truncate" title={displaySecondary}>{displaySecondary}</span>
+                             <span className="text-slate-400 italic max-w-[80px] truncate" title={displaySecondary}>{displaySecondary}</span>
                         )}
                     </div>
                  </div>
@@ -171,13 +146,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onToggleToday, onDe
                             <StarIcon className={`w-4 h-4 ${isToday ? 'fill-current' : ''}`} />
                         </button>
                     )}
-                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Detalhes">
                         <ChevronDownIcon className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     </button>
-                    <button onClick={() => onEdit(task)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                    <button onClick={() => onEdit(task)} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Editar">
                         <PencilIcon className="w-4 h-4" />
                     </button>
-                    <button onClick={() => onDelete(task.id)} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                    <button onClick={() => onDelete(task.id)} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Excluir">
                         <TrashIcon className="w-4 h-4" />
                     </button>
                 </div>
@@ -199,8 +174,34 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onToggleToday, onDe
       {isExpanded && (
        <div className="px-4 pb-4 bg-white/50 border-t border-slate-200/60 text-sm">
            
+           {/* Action/Workflow Context Section */}
+           {(task.nextAction || task.lastAction || (task.status === TaskStatus.Waiting && task.parallelAction)) && (
+               <div className="mt-3 flex flex-col gap-2">
+                    {task.nextAction && (
+                        <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-xs">
+                            <span className="font-bold text-blue-600 uppercase min-w-[60px]">Próxima:</span>
+                            <span className="text-slate-800 font-medium">{task.nextAction}</span>
+                        </div>
+                    )}
+                    
+                    {task.status === TaskStatus.Waiting && task.parallelAction && (
+                        <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 p-2 bg-purple-50 border border-purple-200 rounded-md text-xs">
+                            <span className="font-bold text-purple-600 uppercase min-w-[60px]">Paralelo:</span>
+                            <span className="text-slate-800">{task.parallelAction}</span>
+                        </div>
+                    )}
+
+                    {task.lastAction && (
+                        <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 p-2 bg-slate-100 border border-slate-200 rounded-md text-xs text-slate-500">
+                             <span className="font-bold text-slate-400 uppercase min-w-[60px]">Última:</span>
+                             <span className="italic">{task.lastAction}</span>
+                        </div>
+                    )}
+               </div>
+           )}
+
            {task.description && (
-            <div className="mt-3 text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 text-xs">
+            <div className="mt-3 text-slate-600 bg-white p-2 rounded border border-slate-200 text-xs shadow-sm">
                 <span className="font-bold text-slate-400 uppercase block mb-1 text-[10px]">Descrição</span>
                 {task.description}
             </div>

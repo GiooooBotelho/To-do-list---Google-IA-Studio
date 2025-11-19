@@ -20,8 +20,8 @@ const priorityFilterOptions: Array<'All' | PriorityLevel> = ['All', 0, 1, 10, 10
 const primaryCategoryOptions: Array<'All' | PrimaryCategory> = ['All', ...Object.values(PrimaryCategory)];
 const secondaryCategoryOptions: Array<'All' | SecondaryCategory> = [
     'All',
-    'Geral', 'Água', 'Anvisa', 'Calibração', 'Corte a Laser', 'Desenho Técnico', 'Embalagem', 'ESD', 'ETO', 
-    'Gravação a Laser', 'Inventário', 'Mestrado', 'Partículas', 'Solda a Laser', 'Visita'
+    'Geral', 'Água', 'Anvisa', 'Brinde/Evento', 'Calibração', 'Corte a Laser', 'Desenho Técnico', 'Embalagem', 'ESD', 'ETO', 
+    'Gravação a Laser', 'Inventário', 'Manufatura', 'Mestrado', 'Partículas', 'Solda a Laser', 'Visita'
 ];
 
 const priorityDisplay: Record<string, string> = {
