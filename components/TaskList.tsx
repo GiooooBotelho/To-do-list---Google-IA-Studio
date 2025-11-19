@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Task, PriorityLevel, PrimaryCategory, SecondaryCategory } from '../types';
+import { Task, PriorityLevel, PrimaryCategory, SecondaryCategory, TaskStatus } from '../types';
 import TaskItem from './TaskItem';
 import { StarIcon } from './Icons';
 
@@ -101,17 +101,23 @@ const TaskList: React.FC<TaskListProps> = ({
         }
     }
     
-    // Default sort: Today > Priority (ascending numbers) > Date
+    // Default sort: Today > Status(Executing) > Priority (ascending numbers) > Date
     return result.sort((a, b) => {
         // 1. Today check
         if (a.isToday && !b.isToday) return -1;
         if (!a.isToday && b.isToday) return 1;
 
-        // 2. Priority check
+        // 2. Executing Status check (InProgress comes before others)
+        const aIsExecuting = a.status === TaskStatus.InProgress;
+        const bIsExecuting = b.status === TaskStatus.InProgress;
+        if (aIsExecuting && !bIsExecuting) return -1;
+        if (!aIsExecuting && bIsExecuting) return 1;
+
+        // 3. Priority check
         const prioDiff = (a.priority || 100) - (b.priority || 100);
         if (prioDiff !== 0) return prioDiff;
         
-        // 3. Date check
+        // 4. Date check
         return new Date(a.taskDate).getTime() - new Date(b.taskDate).getTime();
     });
 
