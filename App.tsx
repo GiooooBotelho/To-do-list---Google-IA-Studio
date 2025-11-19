@@ -7,6 +7,7 @@ import TaskList from './components/TaskList';
 import TaskFormModal from './components/TaskFormModal';
 import { PlusIcon } from './components/Icons';
 import ConfirmDeleteModal from './components/ConfirmDeleteModal';
+import { exportTasksToFile, importTasksFromFile } from './utils/fileHandler';
 
 const App: React.FC = () => {
   const [tasks, setTasks] = useLocalStorage<Task[]>('tasks_v2', []); // Changed key to reset state for new types
@@ -128,6 +129,45 @@ const App: React.FC = () => {
     }
   };
 
+  // --- Export/Import Logic ---
+  const handleExport = (format: 'xlsx' | 'csv') => {
+    try {
+        exportTasksToFile(tasks, format);
+    } catch (error) {
+        alert('Erro ao exportar: ' + error);
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    try {
+        const importedTasks = await importTasksFromFile(file);
+        
+        if (importedTasks.length === 0) {
+            alert('Nenhuma tarefa encontrada no arquivo.');
+            return;
+        }
+
+        const confirmMsg = `Encontradas ${importedTasks.length} tarefas. Deseja importar?\n\nTarefas com IDs existentes serão atualizadas. Novas tarefas serão adicionadas.`;
+        if (window.confirm(confirmMsg)) {
+            setTasks(currentTasks => {
+                const newTasks = [...currentTasks];
+                importedTasks.forEach(imported => {
+                    const index = newTasks.findIndex(t => t.id === imported.id);
+                    if (index >= 0) {
+                        newTasks[index] = imported;
+                    } else {
+                        newTasks.push(imported);
+                    }
+                });
+                return newTasks;
+            });
+            alert('Importação concluída com sucesso!');
+        }
+    } catch (error) {
+        console.error(error);
+        alert('Erro ao importar arquivo. Verifique se a formatação está correta.');
+    }
+  };
 
   const { pendingTasks, completedTasks } = useMemo(() => {
     const pending = tasks
@@ -155,7 +195,11 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
-      <Header onAddTask={openModalForNew} />
+      <Header 
+        onAddTask={openModalForNew} 
+        onExport={handleExport}
+        onImport={handleImport}
+      />
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <TaskList
