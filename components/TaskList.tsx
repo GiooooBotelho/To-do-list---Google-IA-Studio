@@ -2,11 +2,13 @@
 import React, { useState, useMemo } from 'react';
 import { Task, PriorityLevel, PrimaryCategory, SecondaryCategory } from '../types';
 import TaskItem from './TaskItem';
+import { StarIcon } from './Icons';
 
 interface TaskListProps {
   title: string;
   tasks: Task[];
   onToggle: (id: string) => void;
+  onToggleToday: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (task: Task) => void;
   onAddSubtask: (taskId: string, subtaskText: string) => void;
@@ -18,7 +20,7 @@ const priorityFilterOptions: Array<'All' | PriorityLevel> = ['All', 0, 1, 10, 10
 const primaryCategoryOptions: Array<'All' | PrimaryCategory> = ['All', ...Object.values(PrimaryCategory)];
 const secondaryCategoryOptions: Array<'All' | SecondaryCategory> = [
     'All',
-    'Geral', 'Água', 'Anvisa', 'Calibração', 'Corte a Laser', 'Embalagem', 'ESD', 'ETO', 
+    'Geral', 'Água', 'Anvisa', 'Calibração', 'Corte a Laser', 'Desenho Técnico', 'Embalagem', 'ESD', 'ETO', 
     'Gravação a Laser', 'Inventário', 'Mestrado', 'Partículas', 'Solda a Laser', 'Visita'
 ];
 
@@ -34,7 +36,8 @@ const priorityDisplay: Record<string, string> = {
 const TaskList: React.FC<TaskListProps> = ({ 
     title, 
     tasks, 
-    onToggle, 
+    onToggle,
+    onToggleToday,
     onDelete, 
     onEdit, 
     onAddSubtask, 
@@ -49,15 +52,23 @@ const TaskList: React.FC<TaskListProps> = ({
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
 
+  // Today Filter State
+  const [filterToday, setFilterToday] = useState(false);
+
   const filteredTasks = useMemo(() => {
     let result = tasks;
 
-    // 1. Priority Filter
+    // 1. Today Filter (New)
+    if (filterToday) {
+        result = result.filter(task => task.isToday);
+    }
+
+    // 2. Priority Filter
     if (activePriorityFilter !== 'All') {
       result = result.filter(task => task.priority === activePriorityFilter);
     }
     
-    // 2. Primary Category Filter
+    // 3. Primary Category Filter
     if (activePrimaryFilter !== 'All') {
         // Handle potential legacy data where primaryCategory might be undefined but category exists
         result = result.filter(task => {
@@ -67,12 +78,12 @@ const TaskList: React.FC<TaskListProps> = ({
         });
     }
 
-    // 3. Secondary Category Filter
+    // 4. Secondary Category Filter
     if (activeSecondaryFilter !== 'All') {
         result = result.filter(task => (task.secondaryCategory || 'Geral') === activeSecondaryFilter);
     }
 
-    // 4. Date Filter
+    // 5. Date Filter
     if (dateFilterType) {
         if (filterStartDate) {
             result = result.filter(task => {
@@ -90,14 +101,21 @@ const TaskList: React.FC<TaskListProps> = ({
         }
     }
     
-    // Default sort: Priority (ascending numbers) -> Date
+    // Default sort: Today > Priority (ascending numbers) > Date
     return result.sort((a, b) => {
+        // 1. Today check
+        if (a.isToday && !b.isToday) return -1;
+        if (!a.isToday && b.isToday) return 1;
+
+        // 2. Priority check
         const prioDiff = (a.priority || 100) - (b.priority || 100);
         if (prioDiff !== 0) return prioDiff;
+        
+        // 3. Date check
         return new Date(a.taskDate).getTime() - new Date(b.taskDate).getTime();
     });
 
-  }, [tasks, activePriorityFilter, activePrimaryFilter, activeSecondaryFilter, filterStartDate, filterEndDate, dateFilterType]);
+  }, [tasks, activePriorityFilter, activePrimaryFilter, activeSecondaryFilter, filterStartDate, filterEndDate, dateFilterType, filterToday]);
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm flex flex-col h-full">
@@ -112,6 +130,21 @@ const TaskList: React.FC<TaskListProps> = ({
         </div>
         
         <div className="flex flex-col gap-3">
+            {/* Quick Filter: Today */}
+            <div>
+                <button
+                    onClick={() => setFilterToday(!filterToday)}
+                    className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md border transition-all ${
+                        filterToday
+                        ? 'bg-amber-100 text-amber-800 border-amber-300 shadow-sm ring-1 ring-amber-200'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:text-amber-600'
+                    }`}
+                >
+                    <StarIcon className={`w-4 h-4 ${filterToday ? 'fill-amber-600' : ''}`} />
+                    {filterToday ? 'Exibindo Apenas "Hoje"' : 'Filtrar Apenas "Hoje"'}
+                </button>
+            </div>
+
             {/* Priority Filter (Buttons) */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
                 <span className="text-xs font-bold text-slate-400 uppercase min-w-[60px]">Prioridade:</span>
@@ -206,6 +239,7 @@ const TaskList: React.FC<TaskListProps> = ({
               key={task.id}
               task={task}
               onToggle={onToggle}
+              onToggleToday={onToggleToday}
               onDelete={onDelete}
               onEdit={onEdit}
               onAddSubtask={onAddSubtask}

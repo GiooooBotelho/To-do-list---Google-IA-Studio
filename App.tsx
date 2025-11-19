@@ -72,6 +72,15 @@ const App: React.FC = () => {
       })
     );
   };
+
+  const toggleTaskToday = (id: string) => {
+    setTasks(tasks.map(task => {
+        if (task.id === id) {
+            return { ...task, isToday: !task.isToday };
+        }
+        return task;
+    }));
+  };
   
   const addSubtask = (taskId: string, subtaskText: string) => {
     if (!subtaskText.trim()) return;
@@ -123,10 +132,16 @@ const App: React.FC = () => {
   const { pendingTasks, completedTasks } = useMemo(() => {
     const pending = tasks
       .filter(task => !task.completed && task.status !== TaskStatus.Completed)
-      // Sort by Priority (asc) then Date
       .sort((a, b) => {
+         // 1. Sort by "Today" status (True first)
+         if (a.isToday && !b.isToday) return -1;
+         if (!a.isToday && b.isToday) return 1;
+
+         // 2. Sort by Priority (asc)
          const prioDiff = (a.priority || 100) - (b.priority || 100);
          if (prioDiff !== 0) return prioDiff;
+         
+         // 3. Sort by Date
          return new Date(a.taskDate).getTime() - new Date(b.taskDate).getTime();
       });
 
@@ -147,6 +162,7 @@ const App: React.FC = () => {
             title="A Fazer / Executando"
             tasks={pendingTasks}
             onToggle={toggleTaskCompletion}
+            onToggleToday={toggleTaskToday}
             onDelete={requestDelete}
             onEdit={openModalForEdit}
             onAddSubtask={addSubtask}
@@ -157,6 +173,7 @@ const App: React.FC = () => {
             title="Concluídas"
             tasks={completedTasks}
             onToggle={toggleTaskCompletion}
+            onToggleToday={toggleTaskToday}
             onDelete={requestDelete}
             onEdit={openModalForEdit}
             onAddSubtask={addSubtask}

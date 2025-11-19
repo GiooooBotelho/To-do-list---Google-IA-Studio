@@ -12,6 +12,7 @@ export enum PrimaryCategory {
   SAE = 'SAE',
   Printing3D = '3D Printing',
   MasterListPDM = 'Master List/PDM',
+  Project = 'Projeto',
   Other = 'Outro',
 }
 
@@ -21,6 +22,7 @@ export type SecondaryCategory =
   | 'Anvisa'
   | 'Calibração'
   | 'Corte a Laser'
+  | 'Desenho Técnico'
   | 'Embalagem'
   | 'ESD'
   | 'ETO'
@@ -49,6 +51,7 @@ export interface Task {
   lastAction: string; 
   nextAction: string; 
   parallelAction?: string; 
+  isToday?: boolean; // New field for "Today" focus
 
   // Categorization
   primaryCategory: PrimaryCategory;
